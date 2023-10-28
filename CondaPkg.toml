@@ -1,7 +1,6 @@
 [deps]
 chromadb = ""
 spacy = ""
-langchain = ""
 
 [pip.deps]
 deeplake = ""

@@ -56,12 +56,12 @@ end
 
 # ╔═╡ e6654fb7-f186-44e8-b65b-64edcd714ce3
 begin
-	if !isdir("../data")
-		mkdir("../data")
-	end
-	if !isdir("../text")
-		mkdir("../text")
-	end
+    if !isdir("../data")
+        mkdir("../data")
+    end
+    if !isdir("../text")
+        mkdir("../text")
+    end
 end
 
 # ╔═╡ 4f321908-9978-46bb-a95e-f12331d652ce
@@ -75,52 +75,9 @@ begin
     nlp = spacy.load("en_core_web_sm")
 end
 
-# ╔═╡ f8c95c6f-fd39-46cb-8061-59b475cc8086
-function add_words_graph(sent, head_freq::Dict{String,Dict{String,Float32}}, child_freq::Dict{String,Dict{String,Float32}})
-    for token in sent
-        wd = if pyconvert(Bool, token.is_alpha | token.is_digit)
-            pyconvert(String, token.norm_)
-        else
-            ""
-        end
-        if wd == ""
-            continue
-        end
-        hd = if pyconvert(Bool, token.head.is_alpha | token.head.is_digit)
-            pyconvert(String, token.head.norm_)
-        else
-            ""
-        end
-        is_root = pyconvert(Bool, token.dep_ == pystr("ROOT"))
-        if !is_root && hd != ""
-            if !haskey(head_freq, wd)
-                head_freq[wd] = Dict([hd => 1.0f0])
-            else
-                if !haskey(head_freq[wd], hd)
-                    head_freq[wd][hd] = 1.0f0
-                else
-                    head_freq[wd][hd] += 1.0f0
-                end
-            end
-        end
-        chs = [pyconvert(String, ch.norm_) for ch in token.children if pyconvert(Bool, ch.is_alpha | ch.is_digit)]
-        if length(chs) > 0 && !haskey(child_freq, wd)
-            child_freq[wd] = Dict{String,Float32}()
-        end
-        for ch in chs
-            if !haskey(child_freq[wd], ch)
-                child_freq[wd][ch] = 1.0f0
-            else
-                child_freq[wd][ch] += 1.0f0
-            end
-        end
-    end
-end
-
 # ╔═╡ 7020bb31-2f74-4346-85b8-16fb946fb946
 function add_sents_words(doc, sent_list::Vector{Vector{String}}, word_set::Set{String},
-    src::String, sent_src::Vector{String},
-    head_freq::Dict{String,Dict{String,Float32}}, child_freq::Dict{String,Dict{String,Float32}}
+    src::String, sent_src::Vector{String}
 )
     for sent in doc.sents
         wds = String[]
@@ -135,7 +92,6 @@ function add_sents_words(doc, sent_list::Vector{Vector{String}}, word_set::Set{S
             push!(sent_list, wds)
             union!(word_set, wds)
             push!(sent_src, src)
-            add_words_graph(sent, head_freq, child_freq)
         end
     end
 end
@@ -155,8 +111,6 @@ let
         sents = Vector{String}[]
         word_set = Set{String}()
         sent_src = String[]
-        head_freq = Dict{String,Dict{String,Float32}}()
-        child_freq = Dict{String,Dict{String,Float32}}()
         for (i, f_n) in enumerate(f_names)
             if i % 500 == 1
                 @info i, f_n
@@ -166,7 +120,7 @@ let
             txt = replace(f_txt, r"<[^>]*>" => "", "." => ". ", "," => ", ", "!" => "! ", "?" => "? ", "-" => " - ", "(" => " (", ")" => " )", "\\" => "")
             close(fd)
             doc = nlp(txt)
-            add_sents_words(doc, sents, word_set, f_n, sent_src, head_freq, child_freq)
+            add_sents_words(doc, sents, word_set, f_n, sent_src)
         end
         words = collect(word_set)
         word_set = nothing
@@ -179,8 +133,6 @@ let
         serialize("../data/imdb_words_sents.jls", (words, word_idx, sents, sent_src))
         @info "Words: ", length(words), "Sentences:", length(sents), "Files", length(f_names)
         @info words, word_idx, sents, sent_src
-        serialize("../data/imdb_words_graph.jls", (head_freq, child_freq))
-        @info head_freq, child_freq
     end
 end
 
@@ -241,7 +193,6 @@ end
 # ╟─4f321908-9978-46bb-a95e-f12331d652ce
 # ╠═67dbbc91-8061-4f44-aeeb-8734f8153f22
 # ╠═7020bb31-2f74-4346-85b8-16fb946fb946
-# ╠═f8c95c6f-fd39-46cb-8061-59b475cc8086
 # ╟─1f46c8b2-b691-4a43-b2f8-5eaa3ee45048
 # ╠═0d7b7d43-e337-45a8-a77e-18a8c868db39
 # ╠═ab7897fa-e120-4b2f-8148-cc1249dad358
