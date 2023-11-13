@@ -167,25 +167,26 @@ let
         vals = Float32[]
         N = 17
         m_max = 6
+        n_chars = 127
         for (i, chs) in enumerate(w_ch_pos)
             for (ch, pos) in chs
                 for m in 1:m_max
                     v = sum([cos_fn(N, m, k) for k in pos])
                     push!(cols, i)
-                    push!(rows, ch)
+                    push!(rows, n_chars * (m - 1) + ch)
                     push!(vals, v)
                 end
             end
         end
         wds_matrix = collect(sparse(rows, cols, vals))
         @info wds_matrix
-        xdims = 30
-        u, s, v = svd(wds_matrix)
-        w_cos_ps = convert(Matrix{Float32}, s .* v' / norm(s))[1:xdims, :]
-        w_cos_ut = convert(Matrix{Float32}, u')[1:xdims, :]
+        xdims = 128
+        u, s, v = rsvd(wds_matrix, xdims)
+        w_cos_ps = convert(Matrix{Float32}, s .* v' / norm(s))
+        w_cos_ut = convert(Matrix{Float32}, u')
         w_cos_s = convert(Vector{Float32}, s)
         time2 = now()
-        @info w_cos_ps, w_cos_ut
+        @info w_cos_ps, w_cos_ut, w_cos_s
         serialize("../data/sed_word_cos_vs.jls", (w_cos_ps, w_cos_ut, w_cos_s))
         @info "Used ", time_span(time1, time2, :Second)
         plot(1:length(s), s, label="Singular Values (Cos Transformed)")
@@ -304,9 +305,8 @@ let
         s_dims = 300
         u, s, v = rsvd(semantic_matrix, s_dims)
         semantic_ps = convert(Matrix{Float32}, s .* v')
-        @info semantic_ps
+        @info semantic_ps, s
         time2 = now()
-        @info semantic_ps
         serialize("../data/sed_word_semantic_vs.jls", semantic_ps)
         @info "Used ", time_span(time1, time2, :Second)
         plot(1:length(s), s, label="Singular Values (word semantic)")
@@ -455,7 +455,7 @@ end
 # ╠═0ead4006-0a2d-4eb5-bac9-23077729e79b
 # ╠═3bb7c7a8-d8cf-4f39-ab31-f7d670ad3b49
 # ╠═8f6b33ca-04a2-42dd-8e7b-ef2dd90aae27
-# ╠═4f321908-9978-46bb-a95e-f12331d652ce
+# ╟─4f321908-9978-46bb-a95e-f12331d652ce
 # ╠═4962414f-0007-4438-b7fd-b307a7bbfbc1
 # ╠═e7549436-2c9d-4edb-88aa-3e443c7be581
 # ╠═7676ed9f-dcf3-4a26-bff4-7eb5b14a854d
@@ -484,6 +484,6 @@ end
 # ╟─7468cb6a-a014-47b6-93f2-3e937da91c6b
 # ╠═853577e8-7299-433b-b7de-9bcd2fd75a31
 # ╟─6c7d0284-4c53-44b1-b671-12669ef7118a
-# ╟─40c73e97-a267-41fc-abae-a0108b18fa60
+# ╠═40c73e97-a267-41fc-abae-a0108b18fa60
 # ╟─c716deb9-3c28-49cf-b360-3158e01d8f8d
 # ╟─f64d72ad-3cf0-47f7-8e30-50e966ad5cb0
