@@ -16,6 +16,7 @@ This directory contains Pluto notebook files:
 - query_imdb_chromadb.jl - Loads and queries word and sentence embeddings with ChromaDB.
 - svd_cos_z_mnist.jl - Reduces MNIST data dimension with 2D DCT and SVD.
 - svd_mnist_chromadb.jl - Loads and queries MNIST embedding with ChromaDB.
+- knowledge_graph_chromadb.jl - Calculate the knowledge graph vectors embeddings and query with ChromaDB.
 
 ### Src Directory
 This directory contains:
@@ -47,7 +48,8 @@ exit()
 mkdir data text
 2. Download IMDB samples data from [here](https://ai.stanford.edu/~amaas/data/sentiment/) 
 3. Unzip the data and move it into the text folder: `text/aclImdb`
-4. Download the json file from [here](https://github.com/nightblade9/simple-english-dictionary/blob/main/processed/merged.json), rename it, and copy it into the file: `text/simple-english-dictionary.json`
+4. Download the [json file](https://github.com/nightblade9/simple-english-dictionary/blob/main/processed/merged.json), rename it, and copy it into the file: `text/simple-english-dictionary.json`
+5. Download the [csv file](https://github.com/resource-watch/graph/blob/master/import_db_csv_files/conceptEdges.csv) and move it to `text/conceptEdges.csv`
 
 ## Running a Program
 1. Start Julia in the command line:    

@@ -165,8 +165,8 @@ let
         cols = Int[]
         rows = Int[]
         vals = Float32[]
-        N = 17
-        m_max = 6
+        N = 5
+        m_max = 5
         n_chars = 127
         for (i, chs) in enumerate(w_ch_pos)
             for (ch, pos) in chs
@@ -394,8 +394,8 @@ function token_spell_vec(tkn::String, ut::Matrix{Float32}, sv::Vector{Float32}, 
             push!(ch_pos[i_ch], i)
         end
     end
-    N = 17
-    m_max = 6
+    N = 5
+    m_max = 5
     rows = Int[]
     vals = Float32[]
     for (ch, pos) in ch_pos
