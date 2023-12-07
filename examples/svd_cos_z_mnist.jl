@@ -142,12 +142,11 @@ function svd_encoding(s_train::Array{Float32}, s_test::Array{Float32})
 end
 
 # ╔═╡ 479d1f91-9481-4155-a6d1-88066600ab66
-function build_z(x::Vector{Float32}, label::Int)::Vector{Float32}
+function build_z(x::Vector{Float32}, label::Int, ut::Matrix{Float32})::Vector{Float32}
     xdim = length(x)
-    z = zeros(Float32, xdim + 10)
-    z[1:xdim] = x
-    z[xdim+label+1] = norm(x)
-    z
+    z = zeros(Float32, xdim * 10)
+    z[label*xdim+1:(label+1)*xdim] = x
+    ut * z
 end
 
 # ╔═╡ 9cc17b5b-748d-4b4a-a1cc-0d81abaae5bc
@@ -159,14 +158,14 @@ $(@bind prepare_digit_svd_vecs CheckBox())
 # ╔═╡ b8e4e5b1-d163-4eb9-ad04-60492f904fef
 let
     if prepare_digit_svd_vecs
-		time1 = now()
+        time1 = now()
         p1, p2, s, ut = svd_encoding(digit_train_x, digit_test_x)
         x_dims = 30
         serialize("../data/digit_train_svd.jls", (p1[1:x_dims, :], ut[1:x_dims, :]))
         serialize("../data/digit_test_svd.jls", p2[1:x_dims, :])
-		time2 = now()
+        time2 = now()
         @info "digits: $(size(p1)), $(size(p2)), $(size(ut))"
-		@info "Used ", time_span(time1, time2, :Minute)
+        @info "Used ", time_span(time1, time2, :Minute)
         plot(1:length(s), s, label="Singular Values Accumulation (digit)")
     end
 end
@@ -180,14 +179,14 @@ $(@bind prepare_fasion_svd_vecs CheckBox())
 # ╔═╡ 4dfe24fb-75b1-4e37-9219-dd6351d83d48
 let
     if prepare_fasion_svd_vecs
-		time1 = now()
+        time1 = now()
         p1, p2, s, ut = svd_encoding(fashion_train_x, fashion_test_x)
         x_dims = 30
         serialize("../data/fashion_train_svd.jls", (p1[1:x_dims, :], ut[1:x_dims, :]))
         serialize("../data/fashion_test_svd.jls", p2[1:x_dims, :])
-		time2 = now()
+        time2 = now()
         @info "fashions: $(size(p1)), $(size(p2)), $(size(ut))"
-		@info "Used ", time_span(time1, time2, :Minute)
+        @info "Used ", time_span(time1, time2, :Minute)
         plot(1:length(s), s, label="Singular Values (Fashion)")
     end
 end
@@ -195,13 +194,16 @@ end
 # ╔═╡ 86ba099c-7c0c-4d81-902e-2e5bbf5c1219
 function generate_combined(svdprj::Matrix{Float32}, labels::Vector{Int})
     xdims, n = size(svdprj)
-    zs = zeros(Float32, xdims + 10, n)
+    zs = zeros(Float32, xdims * 10, n)
     for i in 1:n
-        zs[1:xdims, i] = svdprj[:, i]
         k = labels[i]
-        zs[xdims+k+1, i] = norm(svdprj[:, i])
+        zs[k*xdims+1:(k+1)*xdims, i] = svdprj[:, i]
     end
-    zs
+    ntop = 100
+    u, s, v = rsvd(zs, ntop)
+    ut = convert(Matrix{Float32}, u')
+    ps = convert(Matrix{Float32}, s .* v')
+    ut, ps, s
 end
 
 # ╔═╡ 1a8c277e-d958-4f91-a6e1-7a1af037516e
@@ -223,7 +225,6 @@ begin
         populate_nodes!(nt, max_level, min_samples)
         cl = make_cluster!(nt)
         populate_cells!(cl)
-        # populate_neighbors!(cl)
         serialize(outfilepath, cl)
     end
 end
@@ -237,17 +238,25 @@ $(@bind partition_sample_data CheckBox())
 # ╔═╡ ccee2c87-38d7-4e32-9519-9d2c36f0e1aa
 let
     if partition_sample_data
-        zs = generate_combined(digit_train_svd, digit_train_y)
-        partition_data(zs, "../data/digit_train_svd_cluster.jls")
+        digit_ut, digit_ps, s = generate_combined(digit_train_svd, digit_train_y)
+        serialize("../data/digit_train_ut_ps.jls", (digit_ut, digit_ps))
+        @info digit_ut, digit_ps, s
+        partition_data(digit_ps, "../data/digit_train_svd_cluster.jls")
 
-        zs = generate_combined(fashion_train_svd, fashion_train_y)
-        partition_data(zs, "../data/fashion_train_svd_cluster.jls")
+        fashion_ut, fashion_ps, s = generate_combined(fashion_train_svd, fashion_train_y)
+        serialize("../data/fashion_train_ut_ps.jls", (fashion_ut, fashion_ps))
+        @info fashion_ut, fashion_ps, s
+        partition_data(fashion_ps, "../data/fashion_train_svd_cluster.jls")
+
+        plot(1:length(s), s, label="Singular Values (fashion_s)")
     end
 end
 
 # ╔═╡ e0c2f7ff-ed75-46bb-8b29-8b0785c3d0d7
 begin
+    digit_ut, digit_ps = deserialize("../data/digit_train_ut_ps.jls")
     digit_cluster = deserialize("../data/digit_train_svd_cluster.jls")
+    fashion_ut, fashion_ps = deserialize("../data/fashion_train_ut_ps.jls")
     fashion_cluster = deserialize("../data/fashion_train_svd_cluster.jls")
     @info size(digit_cluster.cells), size(fashion_cluster.cells)
 end
@@ -334,14 +343,14 @@ $(@bind reconstruct_set Select([:digit_train=>"Digit Train Set", :digit_test=>"D
 
 # ╔═╡ 70202e0e-b6bf-4671-acab-b882b0780580
 begin
-    smpls, svdprj, lbls, sample_classes, cluster, cl_samples, cl_labels, cl_proj = if reconstruct_set == :digit_train
-        digit_train_x, digit_train_svd, digit_train_y, digit_classes, digit_cluster, digit_train_x, digit_train_y, digit_train_svd
+    smpls, svdprj, lbls, sample_classes, cluster, cl_samples, cl_labels, cl_proj, sample_ut = if reconstruct_set == :digit_train
+        digit_train_x, digit_train_svd, digit_train_y, digit_classes, digit_cluster, digit_train_x, digit_train_y, digit_train_svd, digit_ut
     elseif reconstruct_set == :digit_test
-        digit_test_x, digit_test_svd, digit_test_y, digit_classes, digit_cluster, digit_train_x, digit_train_y, digit_train_svd
+        digit_test_x, digit_test_svd, digit_test_y, digit_classes, digit_cluster, digit_train_x, digit_train_y, digit_train_svd, digit_ut
     elseif reconstruct_set == :fashion_train
-        fashion_train_x, fashion_train_svd, fashion_train_y, fashion_classes, fashion_cluster, fashion_train_x, fashion_train_y, fashion_train_svd
+        fashion_train_x, fashion_train_svd, fashion_train_y, fashion_classes, fashion_cluster, fashion_train_x, fashion_train_y, fashion_train_svd, fashion_ut
     elseif reconstruct_set == :fashion_test
-        fashion_test_x, fashion_test_svd, fashion_test_y, fashion_classes, fashion_cluster, fashion_train_x, fashion_train_y, fashion_train_svd
+        fashion_test_x, fashion_test_svd, fashion_test_y, fashion_classes, fashion_cluster, fashion_train_x, fashion_train_y, fashion_train_svd, fashion_ut
     end
     lbls_len = length(lbls)
     @info "count: ", lbls_len
@@ -369,7 +378,7 @@ if isa(rc_index, Int) && rc_index >= 1 && rc_index <= lbls_len
     x = svdprj[:, rc_index]
     indices = zeros(Int, 0)
     for lbl in 0:9
-        z = build_z(x, lbl)
+        z = build_z(x, lbl, sample_ut)
         tis, _, _ = top_matches(cluster, z, 1)
         push!(indices, tis[1])
     end
@@ -393,14 +402,14 @@ end
 
 # ╔═╡ 10a17779-8761-4ad3-83a0-8836be1794ef
 function verify(dataset::Symbol, ntop::Int)
-    svdprj, labels, cluster, cl_labels, cl_proj = if dataset == :digit_train
-        digit_train_svd, digit_train_y, digit_cluster, digit_train_y, digit_train_svd
+    svdprj, labels, cluster, cl_labels, cl_proj, sample_ut = if dataset == :digit_train
+        digit_train_svd, digit_train_y, digit_cluster, digit_train_y, digit_train_svd, digit_ut
     elseif dataset == :digit_test
-        digit_test_svd, digit_test_y, digit_cluster, digit_train_y, digit_train_svd
+        digit_test_svd, digit_test_y, digit_cluster, digit_train_y, digit_train_svd, digit_ut
     elseif dataset == :fashion_train
-        fashion_train_svd, fashion_train_y, fashion_cluster, fashion_train_y, fashion_train_svd
+        fashion_train_svd, fashion_train_y, fashion_cluster, fashion_train_y, fashion_train_svd, fashion_ut
     elseif dataset == :fashion_test
-        fashion_test_svd, fashion_test_y, fashion_cluster, fashion_train_y, fashion_train_svd
+        fashion_test_svd, fashion_test_y, fashion_cluster, fashion_train_y, fashion_train_svd, fashion_ut
     end
     data_len = length(labels)
     mismatches = 0
@@ -411,7 +420,7 @@ function verify(dataset::Symbol, ntop::Int)
         x = svdprj[:, i]
         indices = zeros(Int, 0)
         for lbl in 0:9
-            z = build_z(x, lbl)
+            z = build_z(x, lbl, sample_ut)
             tis, _, _ = top_matches(cluster, z, 1)
             push!(indices, tis[1])
         end
