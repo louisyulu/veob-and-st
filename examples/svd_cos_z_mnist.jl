@@ -217,7 +217,7 @@ end
 
 # ╔═╡ d0e11884-4933-4974-94b4-222ee9917d98
 begin
-    const max_level = 11
+    const max_level = 9
     const min_samples = 200
 
     function partition_data(xs::Matrix{Float32}, outfilepath::String)
